@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kergitulus Haritası - Towny Ulus Haritası</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Üst Çubuk -->
+    <header id="header">
+      <div class="header-left">
+            <h1 class="logo">🗺️ Kergit Map</h1>
+        <span class="logo-sub">Ulus Haritası</span>
+      </div>
+      <div class="header-center">
+        <div class="search-container">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Town veya ulus ara..." autocomplete="off">
+          <div id="searchResults" class="search-results"></div>
+        </div>
+      </div>
+      <div class="header-right">
+        <button id="btnAdmin" class="btn btn-sm" title="Admin Paneli">👑 Yönetim</button>
+        <button id="btnFullscreen" class="btn btn-sm" title="Tam Ekran">⛶ Tam Ekran</button>
+      </div>
+    </header>
+
+    <!-- Ana İçerik -->
+    <div id="mainContent">
+      <!-- Harita Alanı -->
+      <div id="mapContainer">
+        <canvas id="mapCanvas"></canvas>
+        <canvas id="drawCanvas"></canvas>
+
+        <!-- Mini Harita -->
+        <div id="miniMap">
+          <canvas id="miniMapCanvas"></canvas>
+        </div>
+
+        <!-- Sol Kontroller -->
+        <div id="leftControls">
+          <div class="control-group">
+            <button id="btnZoomIn" class="btn btn-control" title="Yakınlaştır">＋</button>
+            <span id="zoomLevel" class="zoom-label">%100</span>
+            <button id="btnZoomOut" class="btn btn-control" title="Uzaklaştır">−</button>
+          </div>
+          <div class="control-group">
+            <button id="btnResetView" class="btn btn-control" title="Sıfırla">⟲</button>
+          </div>
+        </div>
+
+        <!-- Sağ Kontroller (Katmanlar) -->
+        <div id="layerControls">
+          <div class="control-group layers-panel">
+            <div class="layers-header">Katmanlar</div>
+            <label class="layer-item">
+              <input type="checkbox" data-layer="towns" checked>
+              <span>Townlar</span>
+            </label>
+            <label class="layer-item">
+              <input type="checkbox" data-layer="nations" checked>
+              <span>Uluslar</span>
+            </label>
+            <label class="layer-item">
+              <input type="checkbox" data-layer="regions" checked>
+              <span>Bölgeler</span>
+            </label>
+            <label class="layer-item">
+              <input type="checkbox" data-layer="grid" checked>
+              <span>Izgara</span>
+            </label>
+            <label class="layer-item">
+              <input type="checkbox" data-layer="labels" checked>
+              <span>Etiketler</span>
+            </label>
+            <label class="layer-item">
+              <input type="checkbox" data-layer="regionLabels" checked>
+              <span>Bölge İsimleri</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Çizim Modu Göstergesi -->
+        <div id="drawModeIndicator" class="draw-indicator">✏️ Çizim Modu <span id="drawPointCount">0</span> nokta — <span id="drawHint">Çift tıkla/ENTER bitir, SAĞ TIK geri al</span> <button id="btnFinishDraw" class="btn btn-sm" style="background:#2ecc71;border-color:#2ecc71;color:#fff;margin-left:8px;">✓ Bitir</button></div>
+
+        <!-- Alt Bilgi Çubuğu -->
+        <div id="statusBar">
+          <span id="statusCoords">Koordinat: 0, 0</span>
+          <span id="statusZoom">Zoom: %100</span>
+          <span id="statusInfo"></span>
+        </div>
+      </div>
+
+      <!-- Bilgi Paneli -->
+      <div id="infoPanel" class="info-panel hidden">
+        <div class="info-header">
+          <h3 id="infoTitle">Bilgi</h3>
+          <button id="btnCloseInfo" class="btn btn-sm btn-close">✕</button>
+        </div>
+        <div id="infoContent" class="info-content">
+          <div class="info-placeholder">Bir bölgeye tıklayın</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Admin Giriş -->
+  <div id="loginModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Admin Girişi</h3>
+        <button class="btn btn-sm btn-close modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Şifre</label>
+          <input type="password" id="loginPassword" placeholder="Admin şifresi">
+        </div>
+                
+      </div>
+      <div class="modal-footer">
+        <button id="btnLogin" class="btn btn-primary">Giriş Yap</button>
+        <button class="btn modal-close">İptal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Admin Paneli -->
+  <div id="adminModal" class="modal-overlay hidden">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3>👑 Yönetim Paneli</h3>
+        <div class="header-actions">
+          <span id="adminStatus" class="admin-status">Admin</span>
+          <button id="btnLogout" class="btn btn-sm btn-danger">Çıkış Yap</button>
+          <button class="btn btn-sm btn-close modal-close">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-tab="towns">Town Yönetimi</button>
+          <button class="admin-tab" data-tab="nations">Ulus Yönetimi</button>
+          <button class="admin-tab" data-tab="regions">Bölge Yönetimi</button>
+          <button class="admin-tab" data-tab="data">Veri Yönetimi</button>
+        </div>
+        <div class="admin-content">
+          <!-- Town Yönetimi -->
+          <div class="admin-panel active" id="panelTowns">
+            <div class="panel-toolbar">
+              <button id="btnAddTown" class="btn btn-primary btn-sm">+ Yeni Town</button>
+              <span class="panel-info" id="townCount">0 town</span>
+            </div>
+            <div class="table-container">
+              <table id="townsTable">
+                <thead>
+                  <tr>
+                    <th>İsim</th>
+                    <th>Ulus</th>
+                    <th>Nüfus</th>
+                    <th>Konum</th>
+                    <th>İşlem</th>
+                  </tr>
+                </thead>
+                <tbody id="townsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Ulus Yönetimi -->
+          <div class="admin-panel" id="panelNations">
+            <div class="panel-toolbar">
+              <button id="btnAddNation" class="btn btn-primary btn-sm">+ Yeni Ulus</button>
+              <span class="panel-info" id="nationCount">0 ulus</span>
+            </div>
+            <div class="table-container">
+              <table id="nationsTable">
+                <thead>
+                  <tr>
+                    <th>İsim</th>
+                    <th>Lider</th>
+                    <th>Town Sayısı</th>
+                    <th>Renk</th>
+                    <th>İşlem</th>
+                  </tr>
+                </thead>
+                <tbody id="nationsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Bölge Yönetimi -->
+          <div class="admin-panel" id="panelRegions">
+            <div class="panel-toolbar">
+              <button id="btnAddRegion" class="btn btn-primary btn-sm">+ Yeni Bölge</button>
+              <button id="btnDrawRegion" class="btn btn-sm">✏️ Haritada Çiz</button>
+              <button id="btnDrawStrategic" class="btn btn-sm" style="background:#FF6B35;border-color:#FF6B35;color:#fff;">🎯 Stratejik Hedef Çiz</button>
+              <span class="panel-info" id="regionCount">0 bölge</span>
+            </div>
+            <div class="table-container">
+              <table id="regionsTable">
+                <thead>
+                  <tr>
+                    <th>İsim</th>
+                    <th>Tür</th>
+                    <th>Nokta</th>
+                    <th>Renk</th>
+                    <th>İşlem</th>
+                  </tr>
+                </thead>
+                <tbody id="regionsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- Veri Yönetimi -->
+          <div class="admin-panel" id="panelData">
+            <div class="data-actions">
+              <div class="data-section">
+                <h4>📤 Veri Dışa Aktar</h4>
+                <p class="text-muted">Tüm verileri JSON dosyası olarak indir.</p>
+                <button id="btnExport" class="btn btn-primary">JSON Dışa Aktar</button>
+              </div>
+              <div class="data-section">
+                <h4>📥 Veri İçe Aktar</h4>
+                <p class="text-muted">JSON dosyasından veri yükle.</p>
+                <input type="file" id="importFile" accept=".json" class="file-input">
+                <button id="btnImport" class="btn btn-warning">JSON İçe Aktar</button>
+              </div>
+              <div class="data-section">
+                <h4>💾 Veriyi Sıfırla</h4>
+                <p class="text-muted">Tüm verileri varsayılana sıfırla. Bu işlem geri alınamaz!</p>
+                <button id="btnResetData" class="btn btn-danger">Veriyi Sıfırla</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Town/Ulus/Bölge Form -->
+  <div id="formModal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="formModalTitle">Form</h3>
+        <button class="btn btn-sm btn-close modal-close">✕</button>
+      </div>
+      <div class="modal-body" id="formModalBody">
+      </div>
+      <div class="modal-footer">
+        <button id="btnFormSave" class="btn btn-primary">Kaydet</button>
+        <button class="btn modal-close">İptal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Onay -->
+  <div id="confirmModal" class="modal-overlay hidden">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h3 id="confirmTitle">Onay</h3>
+        <button class="btn btn-sm btn-close modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage">Emin misiniz?</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btnConfirmYes" class="btn btn-danger">Evet</button>
+        <button class="btn modal-close">İptal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Bildirim -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/admin.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
